@@ -1,14 +1,43 @@
 # Worker Contracts — Day 09 Lab
-# Định nghĩa input/output rõ ràng cho từng worker.
-# Supervisor và workers phải tuân theo contract này.
+# Phản ánh trạng thái thực tế của hệ thống (không phải template mặc định).
+# Cập nhật theo code đã implement trong retrieval.py và routing logic từ trace thực tế.
 #
 # Rule: Supervisor giữ quyết định luồng. Worker giữ domain skill.
 #       Contract là ranh giới rõ ràng giữa hai bên.
-#
-# TODO Sprint 2: Cập nhật "actual_implementation" khi đã implement xong.
 
-version: "1.0"
-updated_at: "2026-04-13"
+version: "1.1"
+updated_at: "2026-04-14"
+
+# ─────────────────────────────────────────────
+# Infrastructure (dùng chung)
+# ─────────────────────────────────────────────
+
+infrastructure:
+  vector_store:
+    engine: "chromadb"
+    persist_path: "./chroma_db"
+    collection_name: "day09_docs"
+    status: "built"  # đã build xong — không cần rebuild
+  embedding:
+    primary:
+      library: "sentence-transformers"
+      model: "all-MiniLM-L6-v2"
+      dim: 384
+      mode: "offline"  # không cần API key
+    fallback_1:
+      library: "openai"
+      model: "text-embedding-3-small"
+      requires_env: "OPENAI_API_KEY"
+    fallback_2:
+      note: "random seed-by-text — CHỈ dùng khi test unit, kết quả retrieval không có nghĩa"
+  similarity_metric: "cosine"
+  score_formula: "score = round(max(0.0, min(1.0, 1.0 - cosine_distance)), 4)"
+  knowledge_base_docs:
+    - policy_refund_v4.txt
+    - sla_p1_2026.txt
+    - access_control_sop.txt
+    - it_helpdesk_faq.txt
+    - hr_leave_policy.txt
 
 # ─────────────────────────────────────────────
 # Supervisor
@@ -16,7 +45,11 @@ updated_at: "2026-04-13"
 
 supervisor:
   name: supervisor
-  description: "Phân tích task và quyết định route. KHÔNG tự trả lời domain knowledge."
+  file: graph.py
+  description: >
+    Phân tích task đầu vào, quyết định route tới worker phù hợp.
+    KHÔNG tự trả lời domain knowledge.
+    KHÔNG gọi ChromaDB hoặc LLM trực tiếp.
   input:
     task:
       type: string
@@ -30,26 +63,40 @@ supervisor:
     route_reason:
       type: string
       required: true
-      description: "Lý do cụ thể tại sao chọn route này (không được để 'unknown')"
+      format: "[lý do route chính] | [cờ cảnh báo phụ nếu có]"
+      example: "task chứa keyword chính sách/cấp quyền -> chọn policy tool | bật cờ risk_high (cẩn trọng)"
+      constraint: "KHÔNG được là chuỗi rỗng hoặc 'unknown'"
     risk_high:
       type: boolean
       required: true
+      trigger_keywords: ["khẩn cấp", "lỗi", "emergency", "P1", "flash sale"]
     needs_tool:
       type: boolean
       required: true
+      description: "True → policy_tool_worker được phép gọi MCP tools"
   routing_rules:
-    - condition: "task chứa 'hoàn tiền', 'refund', 'flash sale', 'license', 'cấp quyền', 'access level'"
+    - priority: 1
+      condition: "task chứa 'hoàn tiền', 'refund', 'flash sale', 'license', 'cấp quyền', 'access level'"
       route: "policy_tool_worker"
-    - condition: "task chứa 'P1', 'SLA', 'ticket', 'escalation', 'sự cố'"
+      set_risk_high_if: "'khẩn cấp' hoặc 'lỗi' xuất hiện trong task"
+    - priority: 2
+      condition: "task chứa 'P1', 'SLA', 'ticket', 'escalation', 'sự cố'"
       route: "retrieval_worker"
-    - condition: "task chứa mã lỗi không rõ (ERR-xxx) VÀ không có context"
+      note: "P1 ưu tiên retrieval — policy được kiểm tra trong synthesis nếu cần"
+    - priority: 3
+      condition: "task chứa mã lỗi dạng ERR-xxx VÀ không có context đủ để route"
       route: "human_review"
-    - condition: "default"
+    - priority: 99
+      condition: "default"
       route: "retrieval_worker"
   constraints:
     - "Supervisor không được tự trả lời policy questions"
-    - "route_reason KHÔNG được là chuỗi rỗng hoặc 'unknown'"
-    - "Nếu risk_high=True → luôn ghi lý do cụ thể"
+    - "route_reason phải dùng format '[lý do chính] | [cờ phụ]' nếu có nhiều tín hiệu"
+    - "Nếu risk_high=true → route_reason phải ghi rõ keyword nào kích hoạt"
+    - "Nếu cả retrieval và policy đều match → ưu tiên theo priority (policy = 1, retrieval = 2)"
+  actual_implementation:
+    status: "done"
+    notes: "Routing logic đã validate với 3 test cases thực tế trong routing_decisions.md"
 
 # ─────────────────────────────────────────────
 # Retrieval Worker
@@ -58,46 +105,97 @@ supervisor:
 retrieval_worker:
   name: retrieval_worker
   file: workers/retrieval.py
-  description: "Tìm kiếm chunks bằng chứng từ Knowledge Base. Stateless — test độc lập được."
+  description: >
+    Embed câu hỏi bằng all-MiniLM-L6-v2, query ChromaDB (day09_docs),
+    trả về top-k chunks có cosine similarity cao nhất.
+    Stateless — test độc lập được bằng `python workers/retrieval.py`.
   input:
     task:
       type: string
       required: true
-      description: "Câu hỏi cần tìm evidence"
-    top_k:
+      source: "state['task']"
+    retrieval_top_k:
       type: integer
       required: false
       default: 3
-      description: "Số chunks cần retrieve"
+      source: "state.get('retrieval_top_k', DEFAULT_TOP_K)"
   output:
     retrieved_chunks:
       type: array
       required: true
-      description: "List of chunk objects"
+      description: "List chunk objects, sắp xếp giảm dần theo score"
       items:
-        text: string
-        source: string
-        score: float  # 0.0 - 1.0 (cosine similarity)
-        metadata: object
+        text:
+          type: string
+          description: "Nội dung chunk từ ChromaDB"
+        source:
+          type: string
+          description: "Tên file gốc (e.g. 'sla_p1_2026.txt')"
+        score:
+          type: float
+          range: "[0.0, 1.0]"
+          formula: "round(max(0.0, min(1.0, 1.0 - cosine_distance)), 4)"
+        metadata:
+          type: object
+          description: "Metadata từ ChromaDB (có thể rỗng)"
     retrieved_sources:
       type: array
+      items: string
       required: true
-      description: "Unique list of source filenames"
+      description: "Unique list tên file, giữ thứ tự xuất hiện đầu tiên"
+      implementation_note: "list(dict.fromkeys(c['source'] for c in chunks))"
     worker_io_logs:
       type: array
       required: true
-      description: "Log input/output của worker (append to array)"
-  error_format:
-    code: "RETRIEVAL_FAILED"
-    reason: string
+      append: true
+      schema:
+        worker: string        # "retrieval_worker"
+        input:
+          task: string
+          top_k: integer
+        output:
+          chunks_count: integer
+          sources: array
+          top_score: float | null
+        error: null | object  # {"code": "RETRIEVAL_FAILED", "reason": string}
+  state_mutations:
+    writes:
+      - "state['retrieved_chunks']"
+      - "state['retrieved_sources']"
+      - "state['worker_io_logs'] (append)"
+      - "state['workers_called'] (append 'retrieval_worker')"
+      - "state['history'] (append summary string)"
+    reads:
+      - "state['task']"
+      - "state['retrieval_top_k']"
   constraints:
-    - "Phải trả về ít nhất 1 chunk nếu tìm thấy"
-    - "Nếu không tìm thấy → retrieved_chunks=[] (không trả về fake chunks)"
-    - "Score phải là float trong khoảng [0, 1]"
-    - "Stateless: không đọc hoặc ghi state ngoài những gì được khai báo ở trên"
+    - "Phải trả về ít nhất 1 chunk nếu ChromaDB tìm thấy kết quả"
+    - "Nếu ChromaDB chưa sẵn sàng hoặc query lỗi → retrieved_chunks=[] (abstain, không fake)"
+    - "Score phải là float trong [0.0, 1.0] — không được là raw distance"
+    - "Stateless: không đọc/ghi bất kỳ file hay biến ngoài state"
+    - "Không raise exception ra ngoài run() — mọi lỗi phải catch và ghi vào log_entry['error']"
+  chroma_config:
+    path: "./chroma_db"
+    collection: "day09_docs"
+    query_params:
+      include: ["documents", "distances", "metadatas"]
+      n_results: "min(top_k, collection.count())"
+  test_cases:
+    - query: "SLA ticket P1 là bao lâu?"
+      expect_source: "sla_p1_2026.txt"
+    - query: "Điều kiện được hoàn tiền flash sale là gì?"
+      expect_source: "policy_refund_v4.txt"
+    - query: "Ai phê duyệt cấp quyền Level 3?"
+      expect_source: "access_control_sop.txt"
+    - query: "Nhân viên thử việc được làm remote không?"
+      expect_source: "hr_leave_policy.txt"
+    - query: "Mật khẩu cần đổi sau bao nhiêu ngày?"
+      expect_source: "it_helpdesk_faq.txt"
   actual_implementation:
-    status: "TODO Sprint 2"  # Update to "done" khi xong
-    notes: ""
+    status: "done"
+    embedding_model: "all-MiniLM-L6-v2"
+    chroma_built: true
+    test_run: "python workers/retrieval.py"
 
 # ─────────────────────────────────────────────
 # Policy Tool Worker
@@ -106,20 +204,24 @@ retrieval_worker:
 policy_tool_worker:
   name: policy_tool_worker
   file: workers/policy_tool.py
-  description: "Kiểm tra policy và xử lý exceptions. Có thể gọi MCP tools khi cần."
+  description: >
+    Kiểm tra policy áp dụng cho task dựa trên retrieved_chunks.
+    Phát hiện exception cases (flash_sale, digital_product, activated_product).
+    Nếu needs_tool=true → gọi MCP tools để lấy thêm thông tin.
   input:
     task:
       type: string
       required: true
+      source: "state['task']"
     retrieved_chunks:
       type: array
       required: false
-      description: "Context từ retrieval_worker (nếu đã có)"
+      description: "Context từ retrieval_worker nếu đã có trong state"
     needs_tool:
       type: boolean
       required: false
       default: false
-      description: "True → worker được phép gọi MCP tools"
+      source: "state.get('needs_tool', False)"
   output:
     policy_result:
       type: object
@@ -127,44 +229,67 @@ policy_tool_worker:
       properties:
         policy_applies:
           type: boolean
-          description: "True nếu policy cho phép, False nếu bị chặn"
+          description: "True nếu policy cho phép action, False nếu bị chặn"
         policy_name:
           type: string
           example: "refund_policy_v4"
         exceptions_found:
           type: array
-          description: "Danh sách exceptions tìm thấy"
           items:
-            type: object
-            properties:
-              type: string  # e.g., "flash_sale_exception"
-              rule: string  # Câu policy rule cụ thể
-              source: string
+            type:
+              type: string
+              enum: ["flash_sale_exception", "digital_product_exception", "activated_product_exception"]
+            rule:
+              type: string
+              description: "Câu policy rule cụ thể từ tài liệu"
+            source:
+              type: string
+              description: "Tên file nguồn"
         source:
           type: array
-          description: "Nguồn tài liệu đã dùng"
+          description: "Danh sách file tài liệu đã dùng để check policy"
         policy_version_note:
           type: string
-          description: "Note về version nếu có vấn đề temporal scoping"
+          description: "Ghi chú version nếu có temporal scoping issue"
     mcp_tools_used:
       type: array
-      description: "Danh sách MCP tool calls thực hiện"
+      description: "Danh sách MCP tool calls — rỗng nếu needs_tool=false"
       items:
-        tool: string
+        tool: string          # e.g. "search_kb", "check_access_permission"
         input: object
         output: object
         error: object | null
-        timestamp: string
+        timestamp: string     # ISO 8601
     worker_io_logs:
       type: array
       required: true
-  error_format:
-    code: "POLICY_CHECK_FAILED"
-    reason: string
+      append: true
+  state_mutations:
+    writes:
+      - "state['policy_result']"
+      - "state['mcp_tools_used']"
+      - "state['worker_io_logs'] (append)"
+      - "state['workers_called'] (append 'policy_tool_worker')"
+      - "state['history'] (append summary)"
+    reads:
+      - "state['task']"
+      - "state['retrieved_chunks']"
+      - "state['needs_tool']"
+  exception_detection_rules:
+    flash_sale_exception:
+      trigger: "task hoặc chunks đề cập 'flash sale' + 'hoàn tiền'"
+      action: "Kiểm tra điều khoản flash sale riêng trong policy_refund_v4.txt"
+    digital_product_exception:
+      trigger: "task đề cập sản phẩm kỹ thuật số, license key, download"
+      action: "Kiểm tra non-refundable clause cho digital product"
+    activated_product_exception:
+      trigger: "sản phẩm đã kích hoạt (activated, used)"
+      action: "Kiểm tra policy về sản phẩm đã dùng rồi"
   constraints:
-    - "Phải detect exception cases: flash_sale, digital_product, activated_product"
-    - "Phải ghi tên MCP tool đã gọi vào mcp_tools_used"
-    - "Không được tự bịa policy rules không có trong tài liệu"
+    - "KHÔNG tự bịa policy rule không có trong tài liệu"
+    - "Phải detect ít nhất 1 trong 3 exception cases khi task trigger"
+    - "Phải ghi tên MCP tool đã gọi vào mcp_tools_used (kể cả khi tool trả lỗi)"
+    - "Nếu needs_tool=false → mcp_tools_used=[]"
   actual_implementation:
     status: "TODO Sprint 2"
     notes: ""
@@ -176,7 +301,10 @@ policy_tool_worker:
 synthesis_worker:
   name: synthesis_worker
   file: workers/synthesis.py
-  description: "Tổng hợp câu trả lời từ evidence. Gọi LLM với grounded prompt."
+  description: >
+    Tổng hợp câu trả lời cuối từ retrieved_chunks và/hoặc policy_result.
+    Gọi LLM với grounded prompt — chỉ dùng evidence trong state, không dùng kiến thức ngoài.
+    Abstain nếu không có chunks.
   input:
     task:
       type: string
@@ -188,30 +316,54 @@ synthesis_worker:
     policy_result:
       type: object
       required: false
-      description: "Policy check result từ policy_tool_worker"
+      description: "Kết quả từ policy_tool_worker nếu pipeline đã qua"
   output:
     final_answer:
       type: string
       required: true
-      description: "Câu trả lời cuối có citation"
+      description: "Câu trả lời có citation dạng [1] hoặc [source_name]"
+      abstain_value: "Không đủ thông tin để trả lời câu hỏi này."
     sources:
       type: array
       required: true
-      description: "Sources được cite trong answer"
+      description: "Danh sách sources được cite trong final_answer"
     confidence:
       type: float
       required: true
-      description: "Mức độ tin cậy 0.0-1.0"
+      range: "[0.0, 1.0]"
+      thresholds:
+        high: ">= 0.7"
+        medium: "0.4 - 0.69"
+        low: "< 0.4 → khuyến khích set hitl_triggered=true"
+    hitl_triggered:
+      type: boolean
+      required: true
+      default: false
     worker_io_logs:
       type: array
       required: true
-  error_format:
-    code: "SYNTHESIS_FAILED"
-    reason: string
+      append: true
+  state_mutations:
+    writes:
+      - "state['final_answer']"
+      - "state['sources']"
+      - "state['confidence']"
+      - "state['hitl_triggered']"
+      - "state['worker_io_logs'] (append)"
+      - "state['workers_called'] (append 'synthesis_worker')"
+      - "state['history'] (append summary)"
+    reads:
+      - "state['task']"
+      - "state['retrieved_chunks']"
+      - "state['policy_result']"
+  grounding_rules:
+    - "System prompt phải chứa: 'Answer ONLY using the provided context. Do not use outside knowledge.'"
+    - "Nếu retrieved_chunks=[] → không gọi LLM, trả abstain_value trực tiếp"
+    - "Mỗi claim trong answer phải có citation tương ứng với source trong retrieved_chunks"
   constraints:
-    - "Phải có citation [1] hoặc [source_name] trong answer nếu có chunks"
-    - "Nếu retrieved_chunks=[] → phải abstain, không hallucinate"
-    - "confidence < 0.4 → khuyến khích set hitl_triggered=True"
+    - "KHÔNG hallucinate — nếu chunks không đủ → abstain"
+    - "citation [1] phải tương ứng với retrieved_chunks[0]['source']"
+    - "confidence < 0.4 → hitl_triggered=true"
     - "Không được dùng kiến thức ngoài context được cung cấp"
   actual_implementation:
     status: "TODO Sprint 2"
@@ -224,19 +376,38 @@ synthesis_worker:
 mcp_server:
   name: mcp_server
   file: mcp_server.py
-  description: "Mock MCP Server expose tools cho workers qua dispatch_tool()."
+  description: >
+    Mock MCP Server expose tools cho workers qua dispatch_tool(tool_name, input_dict).
+    Policy Tool Worker gọi MCP thay vì truy cập ChromaDB trực tiếp.
+  interface:
+    dispatch_tool:
+      signature: "dispatch_tool(tool_name: str, input_dict: dict) -> dict"
+      on_unknown_tool: "trả về {'error': 'tool_not_found', 'tool': tool_name}"
+      never_raise: true  # không được raise exception ra ngoài
+    list_tools:
+      signature: "list_tools() -> list[dict]"
+      format: "MCP tool schema chuẩn"
   tools:
     search_kb:
+      description: "Tìm kiếm Knowledge Base — dùng ChromaDB day09_docs"
       input:
-        query: string  # required
-        top_k: integer  # default: 3
+        query:
+          type: string
+          required: true
+        top_k:
+          type: integer
+          default: 3
       output:
         chunks: array
         sources: array
         total_found: integer
     get_ticket_info:
+      description: "Tra cứu thông tin ticket theo ID (mock data)"
       input:
-        ticket_id: string  # required (e.g., "P1-LATEST", "IT-1234")
+        ticket_id:
+          type: string
+          required: true
+          example: "P1-LATEST"
       output:
         ticket_id: string
         priority: string
@@ -246,10 +417,16 @@ mcp_server:
         sla_deadline: string
         notifications_sent: array
     check_access_permission:
+      description: "Kiểm tra quyền cấp access theo level và role"
       input:
-        access_level: integer  # 1, 2, hoặc 3
-        requester_role: string
-        is_emergency: boolean  # default: false
+        access_level:
+          type: integer
+          enum: [1, 2, 3]
+        requester_role:
+          type: string
+        is_emergency:
+          type: boolean
+          default: false
       output:
         can_grant: boolean
         required_approvers: array
@@ -257,18 +434,106 @@ mcp_server:
         notes: array
         source: string
     create_ticket:
+      description: "Tạo ticket mới (mock — không ghi vào hệ thống thật)"
       input:
-        priority: string  # P1, P2, P3, P4
+        priority:
+          type: string
+          enum: ["P1", "P2", "P3", "P4"]
         title: string
         description: string
       output:
         ticket_id: string
         url: string
         created_at: string
+  trace_format:
+    description: "Format ghi vào mcp_tools_used khi worker gọi MCP"
+    schema:
+      tool: string
+      input: object
+      output: object
+      error: object | null
+      timestamp: string  # ISO 8601, e.g. "2026-04-14T14:32:11"
   constraints:
-    - "dispatch_tool() phải trả về error dict nếu tool không tồn tại"
+    - "dispatch_tool() phải trả về error dict nếu tool không tồn tại — không raise"
     - "list_tools() phải trả về đúng format MCP tool schema"
-    - "Không được raise exception ra ngoài dispatch_tool()"
+    - "Policy Tool Worker gọi qua dispatch_tool(), không gọi ChromaDB trực tiếp"
+    - "Mỗi lần gọi phải ghi timestamp ISO 8601"
   actual_implementation:
     status: "TODO Sprint 3"
     notes: ""
+
+# ─────────────────────────────────────────────
+# AgentState Schema (shared state toàn graph)
+# ─────────────────────────────────────────────
+
+agent_state:
+  description: "Dict được truyền qua toàn bộ graph. Mỗi worker chỉ đọc/ghi fields được khai báo trong contract của mình."
+  fields:
+    task:
+      type: string
+      writer: "user input"
+      readers: ["supervisor", "retrieval_worker", "policy_tool_worker", "synthesis_worker"]
+    supervisor_route:
+      type: string
+      writer: "supervisor"
+      readers: ["graph route_decision"]
+    route_reason:
+      type: string
+      writer: "supervisor"
+      readers: ["eval_trace", "debug"]
+    risk_high:
+      type: boolean
+      writer: "supervisor"
+      readers: ["synthesis_worker", "eval_trace"]
+    needs_tool:
+      type: boolean
+      writer: "supervisor"
+      readers: ["policy_tool_worker"]
+    retrieval_top_k:
+      type: integer
+      default: 3
+      writer: "caller hoặc default"
+      readers: ["retrieval_worker"]
+    retrieved_chunks:
+      type: array
+      writer: "retrieval_worker"
+      readers: ["policy_tool_worker", "synthesis_worker"]
+    retrieved_sources:
+      type: array
+      writer: "retrieval_worker"
+      readers: ["synthesis_worker", "eval_trace"]
+    policy_result:
+      type: object
+      writer: "policy_tool_worker"
+      readers: ["synthesis_worker"]
+    mcp_tools_used:
+      type: array
+      writer: "policy_tool_worker"
+      readers: ["eval_trace"]
+    final_answer:
+      type: string
+      writer: "synthesis_worker"
+      readers: ["output", "eval_trace"]
+    confidence:
+      type: float
+      writer: "synthesis_worker"
+      readers: ["eval_trace", "hitl_logic"]
+    hitl_triggered:
+      type: boolean
+      writer: "synthesis_worker"
+      readers: ["eval_trace"]
+    workers_called:
+      type: array
+      default: "[]"
+      writer: "mỗi worker tự append tên mình"
+      readers: ["eval_trace"]
+    worker_io_logs:
+      type: array
+      default: "[]"
+      writer: "mỗi worker append 1 entry"
+      readers: ["eval_trace", "debug"]
+    history:
+      type: array
+      default: "[]"
+      writer: "mỗi worker append 1 summary string"
+      readers: ["debug"]
