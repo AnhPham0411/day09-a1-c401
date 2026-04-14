@@ -18,7 +18,24 @@ Gọi độc lập để test:
 
 import os
 from dotenv import load_dotenv
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+
+load_dotenv()
+=======
 load_dotenv()   
+>>>>>>> 91ac991 (Complete implementation of synthesis.py)
+=======
+load_dotenv()   
+=======
+
+load_dotenv()
+>>>>>>> f953c94 (add load_env)
+>>>>>>> 7dcb952 (add load_env)
+=======
+load_dotenv()   
+>>>>>>> ca29ca577bd4764f2fac51d916920cfb1827e5f1
 
 WORKER_NAME = "synthesis_worker"
 
