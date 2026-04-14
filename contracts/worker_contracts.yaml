@@ -372,7 +372,40 @@ policy_tool_worker:
           description: "Danh sách file đã dùng để check"
         policy_version_note:
           type: string
+<<<<<<< HEAD
           description: "Ghi chú version nếu có temporal scoping"
+=======
+          description: "Note về version nếu có vấn đề temporal scoping"
+    mcp_tools_used:
+      type: array
+      description: "Danh sách MCP tool calls thực hiện"
+      items:
+        tool: string
+        input: object
+        output: object
+        error: object | null
+        timestamp: string
+    worker_io_logs:
+      type: array
+      required: true
+  error_format:
+    code: "POLICY_CHECK_FAILED"
+    reason: string
+  constraints:
+    - "Phải detect exception cases: flash_sale, digital_product, activated_product"
+    - "Phải ghi tên MCP tool đã gọi vào mcp_tools_used"
+    - "Không được tự bịa policy rules không có trong tài liệu"
+  actual_implementation:
+    status: "done"  # Người 3 — Policy Enforcer
+    notes: |
+      Rule-based policy check with edge cases:
+      - Flash Sale, Digital Product, Activated Product exceptions
+      - Temporal scoping (v3 vs v4)
+      - MCP integration: search_kb, check_access_permission, get_ticket_info
+      - Store credit 110% detection
+      - P1 emergency context enrichment
+      9 standalone tests all passing.
+>>>>>>> ca29ca577bd4764f2fac51d916920cfb1827e5f1
 
     mcp_tools_used:
       type: list
