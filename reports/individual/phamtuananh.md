@@ -1,7 +1,7 @@
 # Individual Report - Role 1 (Supervisor & Graph)
 
 **Thông tin:**
-- Họ và tên: [Điền tên của bạn]
+- Họ và tên: Phạm Tuấn Anh
 - Vai trò thực thụ: Tech Lead / Team Lead
 - Role Lab: Flow Master (Supervisor & Graph)
 
