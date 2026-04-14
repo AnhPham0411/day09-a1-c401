@@ -32,6 +32,8 @@ import os
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+import chromadb
+from sentence_transformers import SentenceTransformer
 
 
 # ─────────────────────────────────────────────
@@ -140,11 +142,37 @@ def tool_search_kb(query: str, top_k: int = 3) -> dict:
     Hiện tại: Delegate sang retrieval worker.
     """
     try:
-        # Tái dùng retrieval logic từ workers/retrieval.py
-        import sys
-        sys.path.insert(0, os.path.dirname(__file__))
-        from workers.retrieval import retrieve_dense
-        chunks = retrieve_dense(query, top_k=top_k)
+        # Kết nối collection
+        client = chromadb.PersistentClient(path="./chroma_db")
+        collections = client.list_collections()
+        print(f"  [MCP search_kb] Available collections: {collections}")
+        collection = client.get_collection("day09_docs")
+        
+        # Embedding function
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        query_embedding = model.encode([query])[0].tolist()
+        
+        # Query ChromaDB
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            include=["documents", "distances", "metadatas"]
+        )
+        
+        # Format results
+        chunks = []
+        for i, (doc, dist, meta) in enumerate(zip(
+            results["documents"][0],
+            results["distances"][0],
+            results["metadatas"][0]
+        )):
+            chunks.append({
+                "text": doc,
+                "source": meta.get("source", "unknown"),
+                "score": round(1 - dist, 4),  # cosine similarity
+                "metadata": meta,
+            })
+        
         sources = list({c["source"] for c in chunks})
         return {
             "chunks": chunks,
@@ -152,17 +180,12 @@ def tool_search_kb(query: str, top_k: int = 3) -> dict:
             "total_found": len(chunks),
         }
     except Exception as e:
-        # Fallback: return mock data nếu ChromaDB chưa setup
+        # Fallback: return error thay vì mock
         return {
-            "chunks": [
-                {
-                    "text": f"[MOCK] Không thể query ChromaDB: {e}. Kết quả giả lập.",
-                    "source": "mock_data",
-                    "score": 0.5,
-                }
-            ],
-            "sources": ["mock_data"],
-            "total_found": 1,
+            "error": f"Không thể query ChromaDB: {e}. Vui lòng đảm bảo ChromaDB đã được setup theo README.",
+            "chunks": [],
+            "sources": [],
+            "total_found": 0,
         }
 
 
