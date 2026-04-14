@@ -5,8 +5,8 @@
 | Tên | Vai trò | Email |
 |-----|---------|-------|
 | Phạm Tuấn Anh | Supervisor Owner | bintuananh2003@gmail.com |
-| Thành viên 2 | Worker Owner (Retrieval) | tv2@example.com |
-| Thành viên 3 | Worker Owner (Policy) | tv3@example.com |
+| Hoàng Tuấn Anh | Worker Owner (Retrieval) | tv2@example.com |
+| Nguyễn Quang Trường | Worker Owner (Policy) | quangtruongpt0@gmail.com |
 | Thành viên 4 | Synthesis Owner | tv4@example.com |
 | Thành viên 5 | MCP Owner | tv5@example.com |
 | Thành viên 6 | Trace & Docs Owner | tv6@example.com |
@@ -23,9 +23,9 @@
 Nhóm sử dụng kiến trúc **Supervisor-Worker** dạng Graph thay vì pipeline nguyên khối. Supervisor đóng vai trò nhận đầu vào (`AgentState`), phân loại bài toán, và đẩy sang 1 trong 3 worker cụ thể: `retrieval_worker` (tìm kiếm cơ bản), `policy_tool_worker` (tính toán chính sách qua MCP), hoặc nhánh `human_review` (nếu bắt được rủi ro cấp thiết). Kết quả cuối cùng luôn hội tụ về `synthesis_worker` để xuất câu trả lời chống Hallucination (cấm bịa đặt).
 
 **Routing logic cốt lõi:**
-Supervisor dùng **Keyword matching kèm theo Risk Flag**. Cụ thể: 
+Supervisor dùng **Keyword matching kèm theo Risk Flag**. Cụ thể:
 - Quét các keyword ưu tiên cao liên quan đến chính sách ("hoàn tiền", "cấp quyền", "level 2").
-- Tách riêng việc quét Risk flag ("khẩn cấp", "lỗi", "p1 + không phản hồi"). 
+- Tách riêng việc quét Risk flag ("khẩn cấp", "lỗi", "p1 + không phản hồi").
 Sự kết hợp này cho phép hệ thống route chính xác đến Policy Branch kể cả khi câu hỏi vừa chứa keyword của policy nhưng mang thêm tính chất Khẩn cấp (Risk High).
 
 **MCP tools đã tích hợp:**
@@ -105,24 +105,28 @@ Nhóm ưu tiên **Keyword kết hợp Risk Flag**. Lý do: Trong môi trường 
 | Thành viên | Phần đã làm | Theo Sprint |
 |------------|-------------|--------|
 | Tuan Anh | Khởi tạo repo, Role 1 (Graph.py Flow Master), Quyết định routing & state | Sprint 1 & Github Base |
-| Thành viên 2 | Tích hợp ChromaDB và viết chức năng Retrieval | Sprint 2 |
-| Thành viên 3 | Bắt policy các edge cases | Sprint 2 |
+| Hoàng Tuấn Anh | Viết toàn bộ `workers/retrieval.py` và `contracts/worker_contracts.yaml`: implement fallback chain 3 tầng cho embedding (`_get_embedding_fn`), convert distance → score với clamp `[0.0, 1.0]` (`_distance_to_score`), kết nối ChromaDB an toàn (trả `None` thay vì raise khi collection chưa tồn tại). Viết contract invariant tests (B1–B5) để Synthesis & Policy Worker có thể mock output song song mà không cần đợi Retrieval xong. Phát hiện và sửa lỗi dimension mismatch (SentenceTransformers dim=384 vs OpenAI index dim=1536) gây toàn bộ TC fail. | Sprint 2 |
+| Nguyễn Quang Trường | Bắt policy các edge cases | Sprint 2 |
 | Thành viên 4 | Prompt engineering cho `synthesis.py` bắt Abstain | Sprint 2 |
 | Thành viên 5 | Viết MCP Server API mockup | Sprint 3 |
 | Thành viên 6 | Viết tool benchmark trace JsonL đợi 17:00 | Sprint 4 |
 
 **Điều nhóm làm tốt:**
 - Phân chia source code rất tách bạch ngay từ đầu. File ai người nấy sửa, không bị conflict (đụng độ code) trên nhánh Git. Logic state `AgentState` được làm rất chắc giúp việc giao tiếp liên module không bị sập.
+- `worker_contracts.yaml` với schema `ChunkDict` rõ ràng cho phép các thành viên viết worker song song mà không cần đợi nhau — đặc biệt hiệu quả ở Sprint 2 khi Retrieval, Policy và Synthesis chạy đồng thời.
 
 **Điều nhóm làm chưa tốt hoặc gặp vấn đề về phối hợp:**
-- Mất thời gian tranh luận cách định dạng dữ liệu truyền cho `worker_contracts.yaml`. 
-- Gặp lỗi crash `UnicodeEncodeError` ban đầu khi cố in log ra termial Windows.
+- Mất thời gian tranh luận cách định dạng dữ liệu truyền cho `worker_contracts.yaml`.
+- Gặp lỗi crash `UnicodeEncodeError` ban đầu khi cố in log ra terminal Windows.
+- Contract ban đầu thiếu khai báo `infrastructure` section (embedding model, ChromaDB path, collection name), khiến Supervisor Owner phải đọc thẳng vào implementation thay vì đọc contract khi cần biết `CHROMA_PATH`.
 
 **Nếu làm lại, nhóm sẽ thay đổi gì trong cách tổ chức?**
 - Áp dụng Test-Driven Development. Lẽ ra nhóm nên tự đẻ ra 1 bộ Mini-Test Question ngay từ phút mở máy thay vì code mò và chờ đề bài cung cấp 15 test câu hỏi public.
+- Khai báo đầy đủ `infrastructure` section trong contract ngay từ Sprint 1 để tránh dependency ngầm giữa các module.
 
 ---
 
 ## 6. Nếu có thêm 1 ngày, nhóm sẽ làm gì?
 1. Nâng cấp bộ Routing thành Semantic Router chạy bằng Embedding Cosine Similarity thay vì Regex String Matching thô sơ.
-2. Nâng cấp Server MCP từ Class Mock python lên HTTP MCP thật giao tiếp qua Rest API, cho phép Scale Up số lượng Tool độc lập với luồng Code Python.
+2. Nâng cấp `retrieval_worker` thêm **hybrid retrieval** (dense + BM25 keyword) để tăng recall cho các câu multi-hop (ví dụ gq09) — dense retrieval đôi khi chỉ lấy từ 1 file vì cosine similarity thiên về semantic chung, trong khi BM25 bắt được exact token như `"Level 2"`, `"emergency override"`, `"P1 active"`.
+3. Nâng cấp Server MCP từ Class Mock python lên HTTP MCP thật giao tiếp qua Rest API, cho phép Scale Up số lượng Tool độc lập với luồng Code Python.
