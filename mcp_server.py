@@ -33,8 +33,12 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 import chromadb
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI
+from dotenv import load_dotenv
 
+load_dotenv()
+
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ─────────────────────────────────────────────
 # Tool Definitions (Schema Discovery)
@@ -134,6 +138,13 @@ TOOL_SCHEMAS = {
 # Tool Implementations
 # ─────────────────────────────────────────────
 
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    response = openai_client.embeddings.create(
+        model="text-embedding-3-small",  # 1536 dim
+        input=texts
+    )
+    return [e.embedding for e in response.data]
+
 def tool_search_kb(query: str, top_k: int = 3) -> dict:
     """
     Tìm kiếm Knowledge Base bằng semantic search.
@@ -149,8 +160,7 @@ def tool_search_kb(query: str, top_k: int = 3) -> dict:
         collection = client.get_collection("day09_docs")
         
         # Embedding function
-        model = SentenceTransformer("all-MiniLM-L6-v2")
-        query_embedding = model.encode([query])[0].tolist()
+        query_embedding = embed_texts(query)[0]
         
         # Query ChromaDB
         results = collection.query(
