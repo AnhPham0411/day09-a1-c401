@@ -26,7 +26,7 @@ infrastructure:
   vector_store:
     engine: "chromadb"
     persist_path: "./chroma_db"
-    collection_name: "rag_lab"        # ← đổi từ day09_docs
+    collection_name: "day09_docs"        # ← đổi từ day09_docs
 
   embedding:
     priority_1:
