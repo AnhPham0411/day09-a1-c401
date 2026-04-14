@@ -5,7 +5,7 @@
 | Tên | Vai trò | Email |
 |-----|---------|-------|
 | Phạm Tuấn Anh | Supervisor Owner | bintuananh2003@gmail.com |
-| Hoàng Tuấn Anh | Worker Owner (Retrieval) | tv2@example.com |
+| Hoàng Tuấn Anh | Worker Owner (Retrieval) | stephenhtuananh@gmail.com |
 | Nguyễn Quang Trường | Worker Owner (Policy) | quangtruongpt0@gmail.com |
 | Thành viên 4 | Synthesis Owner | tv4@example.com |
 | Thành viên 5 | MCP Owner | tv5@example.com |
