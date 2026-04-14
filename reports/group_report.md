@@ -6,7 +6,7 @@
 |-----|---------|-------|
 | Phạm Tuấn Anh | Supervisor Owner | bintuananh2003@gmail.com |
 | Thành viên 2 | Worker Owner (Retrieval) | tv2@example.com |
-| Thành viên 3 | Worker Owner (Policy) | tv3@example.com |
+| Nguyễn Quang Trường | Worker Owner (Policy) | quangtruongpt0@gmail.com |
 | Thành viên 4 | Synthesis Owner | tv4@example.com |
 | Thành viên 5 | MCP Owner | tv5@example.com |
 | Thành viên 6 | Trace & Docs Owner | tv6@example.com |
@@ -106,7 +106,7 @@ Nhóm ưu tiên **Keyword kết hợp Risk Flag**. Lý do: Trong môi trường 
 |------------|-------------|--------|
 | Tuan Anh | Khởi tạo repo, Role 1 (Graph.py Flow Master), Quyết định routing & state | Sprint 1 & Github Base |
 | Thành viên 2 | Tích hợp ChromaDB và viết chức năng Retrieval | Sprint 2 |
-| Thành viên 3 | Bắt policy các edge cases | Sprint 2 |
+| Nguyễn Quang Trường | Bắt policy các edge cases | Sprint 2 |
 | Thành viên 4 | Prompt engineering cho `synthesis.py` bắt Abstain | Sprint 2 |
 | Thành viên 5 | Viết MCP Server API mockup | Sprint 3 |
 | Thành viên 6 | Viết tool benchmark trace JsonL đợi 17:00 | Sprint 4 |
