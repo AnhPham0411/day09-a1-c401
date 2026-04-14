@@ -26,39 +26,24 @@ infrastructure:
   vector_store:
     engine: "chromadb"
     persist_path: "./chroma_db"
-    collection_name: "day09_docs"
+    collection_name: "rag_lab"        # ← đổi từ day09_docs
 
   embedding:
-    # Thứ tự ưu tiên: thử từ trên xuống, dùng cái đầu tiên khả dụng
     priority_1:
+      library: "openai"
+      model: "text-embedding-3-small"
+      dimension: 1536
+      requires_env: "OPENAI_API_KEY"
+      reason: "khớp với index đã build sẵn trong chroma_db"
+    priority_2:
       library: "sentence-transformers"
       model: "all-MiniLM-L6-v2"
       dimension: 384
       mode: "offline"
-      reason: "không cần API key, chạy được trong lab không có internet"
-    priority_2:
-      library: "openai"
-      model: "text-embedding-3-small"
-      requires_env: "OPENAI_API_KEY"
-      reason: "fallback khi sentence-transformers chưa cài"
+      reason: "fallback offline — cần rebuild index nếu dùng"
     priority_3:
-      note: "random float[384] seeded by hash(text)"
+      note: "random float[1536] seeded by hash(text)"
       warning: "KẾT QUẢ RETRIEVAL VÔ NGHĨA — chỉ dùng để unit test I/O contract"
-
-  similarity:
-    metric: "cosine"
-    score_formula: "score = round(max(0.0, min(1.0, 1.0 - cosine_distance)), 4)"
-    range: "[0.0, 1.0]"
-    interpretation: "1.0 = giống nhau hoàn toàn, 0.0 = không liên quan"
-
-  knowledge_base:
-    docs:
-      - "policy_refund_v4.txt"
-      - "sla_p1_2026.txt"
-      - "access_control_sop.txt"
-      - "it_helpdesk_faq.txt"
-      - "hr_leave_policy.txt"
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SUPERVISOR
@@ -306,23 +291,22 @@ retrieval_worker:
   # Chạy: python workers/retrieval.py
   # Pass khi: expect_source xuất hiện trong retrieved_sources
 
-  test_cases:
-    - id: "TC-R01"
-      query: "SLA ticket P1 là bao lâu?"
-      expect_source: "sla_p1_2026.txt"
-    - id: "TC-R02"
-      query: "Điều kiện được hoàn tiền flash sale là gì?"
-      expect_source: "policy_refund_v4.txt"
-    - id: "TC-R03"
-      query: "Ai phê duyệt cấp quyền Level 3?"
-      expect_source: "access_control_sop.txt"
-    - id: "TC-R04"
-      query: "Nhân viên thử việc được làm remote không?"
-      expect_source: "hr_leave_policy.txt"
-    - id: "TC-R05"
-      query: "Mật khẩu cần đổi sau bao nhiêu ngày?"
-      expect_source: "it_helpdesk_faq.txt"
-
+test_cases:
+  - id: "TC-R01"
+    query: "SLA ticket P1 là bao lâu?"
+    expect_source: "sla-p1-2026.pdf"
+  - id: "TC-R02"
+    query: "Điều kiện được hoàn tiền flash sale là gì?"
+    expect_source: "refund-v4.pdf"
+  - id: "TC-R03"
+    query: "Ai phê duyệt cấp quyền Level 3?"
+    expect_source: "access-control-sop.md"
+  - id: "TC-R04"
+    query: "Nhân viên thử việc được làm remote không?"
+    expect_source: "leave-policy-2026.pdf"
+  - id: "TC-R05"
+    query: "Mật khẩu cần đổi sau bao nhiêu ngày?"
+    expect_source: "helpdesk-faq.md"
   # ── IMPLEMENTATION STATUS ─────────────────────────────────────────────────
 
   implementation:
