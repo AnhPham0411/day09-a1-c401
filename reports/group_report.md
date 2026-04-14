@@ -9,7 +9,7 @@
 | Nguyễn Quang Trường | Worker Owner (Policy) | quangtruongpt0@gmail.com |
 | Thành viên 4 | Synthesis Owner | tv4@example.com |
 | Thành viên 5 | MCP Owner | tv5@example.com |
-| Thành viên 6 | Trace & Docs Owner | tv6@example.com |
+| Đàm Lê Văn Toàn | Trace & Docs Owner | damtoan321@gmail.com |
 
 **Ngày nộp:** 14/04/2026  
 **Repo:** `AnhPham0411/day09-a1-c401`  
