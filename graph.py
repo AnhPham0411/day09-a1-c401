@@ -83,43 +83,42 @@ def supervisor_node(state: AgentState) -> AgentState:
     1. Route sang worker nào
     2. Có cần MCP tool không
     3. Có risk cao cần HITL không
-
-    TODO Sprint 1: Implement routing logic dựa vào task keywords.
     """
     task = state["task"].lower()
     state["history"].append(f"[supervisor] received task: {state['task'][:80]}")
 
-    # --- TODO: Implement routing logic ---
-    # Gợi ý:
-    # - "hoàn tiền", "refund", "flash sale", "license" → policy_tool_worker
-    # - "cấp quyền", "access level", "level 3", "emergency" → policy_tool_worker
-    # - "P1", "escalation", "sla", "ticket" → retrieval_worker
-    # - mã lỗi không rõ (ERR-XXX), không đủ context → human_review
-    # - còn lại → retrieval_worker
-
-    route = "retrieval_worker"         # TODO: thay bằng logic thực
-    route_reason = "default route"    # TODO: thay bằng lý do thực
+    # --- Routing logic ---
+    route = "retrieval_worker"         # Default fallback
+    route_reason = "không có keyword đặc biệt -> default retrieval route"
     needs_tool = False
     risk_high = False
 
-    # Ví dụ routing cơ bản — nhóm phát triển thêm:
-    policy_keywords = ["hoàn tiền", "refund", "flash sale", "license", "cấp quyền", "access", "level 3"]
-    risk_keywords = ["emergency", "khẩn cấp", "2am", "không rõ", "err-"]
+    # Các từ khóa phân loại
+    policy_keywords = ["hoàn tiền", "refund", "flash sale", "license", "cấp quyền", "access", "level 2", "level 3", "policy", "quy định", "store credit"]
+    retrieval_keywords = ["p1", "escalation", "sla", "ticket", "thử việc", "mật khẩu", "phạt"]
+    risk_keywords = ["emergency", "khẩn cấp", "lỗi", "không rõ", "err-", "2am", "không phản hồi"]
 
+    # Đánh giá cảnh báo rủi ro cao (như sự cố khẩn cấp P1, Error Code không rõ)
+    if any(kw in task for kw in risk_keywords) or ("p1" in task and "không phản hồi" in task):
+        risk_high = True
+
+    # Quyết định Routing Flow thay vì trả về mặc định
     if any(kw in task for kw in policy_keywords):
         route = "policy_tool_worker"
-        route_reason = f"task contains policy/access keyword"
+        route_reason = "task chứa keyword chính sách/cấp quyền -> chọn policy tool"
         needs_tool = True
-
-    if any(kw in task for kw in risk_keywords):
-        risk_high = True
-        route_reason += " | risk_high flagged"
-
-    # Human review override
+    elif any(kw in task for kw in retrieval_keywords) or "p1" in task:
+        route = "retrieval_worker"
+        route_reason = "task chứa keyword tra cứu (SLA, ticket) -> chọn retrieval"
+        
+    # Trường hợp Edge-case Human override 
     if risk_high and "err-" in task:
         route = "human_review"
-        route_reason = "unknown error code + risk_high → human review"
+        route_reason = "mã lỗi không rõ (ERR-) kết hợp rủi ro cao -> yêu cầu human review"
+    elif risk_high:
+        route_reason += " | bật cờ risk_high (cẩn trọng)"
 
+    # Cập nhật State object
     state["supervisor_route"] = route
     state["route_reason"] = route_reason
     state["needs_tool"] = needs_tool
@@ -324,7 +323,7 @@ if __name__ == "__main__":
     ]
 
     for query in test_queries:
-        print(f"\n▶ Query: {query}")
+        print(f"\n> Query: {query}")
         result = run_graph(query)
         print(f"  Route   : {result['supervisor_route']}")
         print(f"  Reason  : {result['route_reason']}")

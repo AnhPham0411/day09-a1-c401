@@ -2,13 +2,13 @@
 
 Cấu trúc này đã được review chéo với `SCORING.md` và `README.md` để đảm bảo: **Mỗi người có 1 file python** (không ai bị 0 điểm đóng góp) và **phủ 100%** Deliverables.
 
-## [ ] Người 1: Flow Master (Supervisor & Graph)
-- `[ ]` Code: Khởi tạo file `graph.py` và định nghĩa `AgentState`.
-- `[ ]` Code: Viết hàm `supervisor_node()` và `route_decision()`.
-- `[ ]` Code: Đảm bảo Supervisor log đúng biến `supervisor_route` và `route_reason` vào kết quả đầu ra.
-- `[ ]` Doc: Viết file `docs/routing_decisions.md` (Ghi nhận 3 quyết định routing thực tế).
-- `[ ]` Đánh giá: Thử nghiệm độc lập xem graph route có đến đúng các nhánh dự kiến (ví dụ: route đến human review nếu lỗi, policy vs retrieval).
-- `[ ]` Report: Viết báo cáo cá nhân `reports/individual/nguoi1.md` tập trung vào logic routing.
+## [x] Người 1: Flow Master (Supervisor & Graph)
+- `[x]` Code: Khởi tạo file `graph.py` và định nghĩa `AgentState`.
+- `[x]` Code: Viết hàm `supervisor_node()` và `route_decision()`.
+- `[x]` Code: Đảm bảo Supervisor log đúng biến `supervisor_route` và `route_reason` vào kết quả đầu ra.
+- `[x]` Doc: Viết file `docs/routing_decisions.md` (Ghi nhận 3 quyết định routing thực tế).
+- `[x]` Đánh giá: Thử nghiệm độc lập xem graph route có đến đúng các nhánh dự kiến (ví dụ: route đến human review nếu lỗi, policy vs retrieval).
+- `[x]` Report: Viết báo cáo cá nhân `reports/individual/nguoi1.md` tập trung vào logic routing.
 
 ## [ ] Người 2: Data Finder (Retrieval & Contracts)
 - `[ ]` Code: Code chức năng `workers/retrieval.py` nhận state và query ChromaDB.
