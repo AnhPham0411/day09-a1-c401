@@ -176,7 +176,7 @@ def human_review_node(state: AgentState) -> AgentState:
 
 # TODO Sprint 2: Uncomment sau khi implement workers
 # from workers.retrieval import run as retrieval_run
-# from workers.policy_tool import run as policy_tool_run
+from workers.policy_tool import run as policy_tool_run
 # from workers.synthesis import run as synthesis_run
 
 
@@ -196,19 +196,9 @@ def retrieval_worker_node(state: AgentState) -> AgentState:
 
 
 def policy_tool_worker_node(state: AgentState) -> AgentState:
-    """Wrapper gọi policy/tool worker."""
-    # TODO Sprint 2: Thay bằng policy_tool_run(state)
-    state["workers_called"].append("policy_tool_worker")
-    state["history"].append("[policy_tool_worker] called")
-
-    # Placeholder output
-    state["policy_result"] = {
-        "policy_applies": True,
-        "policy_name": "refund_policy_v4",
-        "exceptions_found": [],
-        "source": "policy_refund_v4.txt",
-    }
-    state["history"].append("[policy_tool_worker] policy check complete")
+    """Wrapper gọi policy/tool worker — Người 3."""
+    # Gọi real policy_tool worker (Sprint 2 done)
+    state = policy_tool_run(state)
     return state
 
 
