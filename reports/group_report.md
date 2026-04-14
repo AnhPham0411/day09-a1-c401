@@ -7,7 +7,7 @@
 | Phạm Tuấn Anh | Supervisor Owner | bintuananh2003@gmail.com |
 | Thành viên 2 | Worker Owner (Retrieval) | tv2@example.com |
 | Thành viên 3 | Worker Owner (Policy) | tv3@example.com |
-| Thành viên 4 | Synthesis Owner | tv4@example.com |
+| Vũ Lê Hoàng | Synthesis Owner | hoanglevu1705@gmail.com |
 | Thành viên 5 | MCP Owner | tv5@example.com |
 | Thành viên 6 | Trace & Docs Owner | tv6@example.com |
 
@@ -32,6 +32,10 @@ Sự kết hợp này cho phép hệ thống route chính xác đến Policy Bra
 - `search_kb`: Dùng để tra cứu ChromaDB trực tiếp dựa trên vector similarity thay vì hard-code đường dẫn docs.
 - `get_ticket_info`: Mock API dùng để lấy trạng thái SLA của thẻ Ticket P1.
 
+**Synthesis tools:**
+- `calculate_confidence`: Tính toán confidence dựa trên format dữ liệu.
+- `_extract_sources_from_answer`: Trích xuất sources từ answer.
+- `_safe_generate`: Generate answer an toàn.
 ---
 
 ## 2. Quyết định kỹ thuật quan trọng nhất
@@ -107,7 +111,7 @@ Nhóm ưu tiên **Keyword kết hợp Risk Flag**. Lý do: Trong môi trường 
 | Tuan Anh | Khởi tạo repo, Role 1 (Graph.py Flow Master), Quyết định routing & state | Sprint 1 & Github Base |
 | Thành viên 2 | Tích hợp ChromaDB và viết chức năng Retrieval | Sprint 2 |
 | Thành viên 3 | Bắt policy các edge cases | Sprint 2 |
-| Thành viên 4 | Prompt engineering cho `synthesis.py` bắt Abstain | Sprint 2 |
+| Vũ Lê Hoàng | Prompt engineering cho `synthesis.py` bắt Abstain | Sprint 2 |
 | Thành viên 5 | Viết MCP Server API mockup | Sprint 3 |
 | Thành viên 6 | Viết tool benchmark trace JsonL đợi 17:00 | Sprint 4 |
 
@@ -126,3 +130,4 @@ Nhóm ưu tiên **Keyword kết hợp Risk Flag**. Lý do: Trong môi trường 
 ## 6. Nếu có thêm 1 ngày, nhóm sẽ làm gì?
 1. Nâng cấp bộ Routing thành Semantic Router chạy bằng Embedding Cosine Similarity thay vì Regex String Matching thô sơ.
 2. Nâng cấp Server MCP từ Class Mock python lên HTTP MCP thật giao tiếp qua Rest API, cho phép Scale Up số lượng Tool độc lập với luồng Code Python.
+3. Sử dụng thêm các tool khác để tối ưu hóa hiệu năng và giảm thiểu chi phí.
