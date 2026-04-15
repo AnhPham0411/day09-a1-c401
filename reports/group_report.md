@@ -7,7 +7,7 @@
 | Phạm Tuấn Anh | Supervisor Owner | bintuananh2003@gmail.com |
 | Hoàng Tuấn Anh | Worker Owner (Retrieval) | stephenhtuananh@gmail.com |
 | Nguyễn Quang Trường | Worker Owner (Policy) | quangtruongpt0@gmail.com |
-| Vũ Lê Hoàng| Synthesis Owner | tv4@example.com |
+| Vũ Lê Hoàng| Synthesis Owner | hoanglevu1705@gmail.com |
 | Vũ Hồng Quang | MCP Owner | quangzetsu@gmail.com |
 | Đàm Lê Văn Toàn | Trace & Docs Owner | damtoan321@gmail.com |
 
