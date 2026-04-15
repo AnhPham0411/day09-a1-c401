@@ -7,7 +7,7 @@
 | Phạm Tuấn Anh | Supervisor Owner | bintuananh2003@gmail.com |
 | Hoàng Tuấn Anh | Worker Owner (Retrieval) | stephenhtuananh@gmail.com |
 | Nguyễn Quang Trường | Worker Owner (Policy) | quangtruongpt0@gmail.com |
-| Thành viên 4 | Synthesis Owner | tv4@example.com |
+| Vũ Lê Hoàng| Synthesis Owner | tv4@example.com |
 | Vũ Hồng Quang | MCP Owner | quangzetsu@gmail.com |
 | Đàm Lê Văn Toàn | Trace & Docs Owner | damtoan321@gmail.com |
 
@@ -137,7 +137,7 @@ Với các câu hỏi single-document đơn giản (gq04, gq08), việc đi qua 
 | Tuan Anh | Khởi tạo repo, Role 1 (Graph.py Flow Master), Quyết định routing & state | Sprint 1 & Github Base |
 | Hoàng Tuấn Anh | Viết toàn bộ `workers/retrieval.py` và `contracts/worker_contracts.yaml`: implement fallback chain 3 tầng cho embedding (`_get_embedding_fn`), convert distance → score với clamp `[0.0, 1.0]` (`_distance_to_score`), kết nối ChromaDB an toàn (trả `None` thay vì raise khi collection chưa tồn tại). Viết contract invariant tests (B1–B5) để Synthesis & Policy Worker có thể mock output song song mà không cần đợi Retrieval xong. Phát hiện và sửa lỗi dimension mismatch (SentenceTransformers dim=384 vs OpenAI index dim=1536) gây toàn bộ TC fail. | Sprint 2 |
 | Nguyễn Quang Trường | Bắt policy các edge cases | Sprint 2 |
-| Thành viên 4 | Prompt engineering cho `synthesis.py` bắt Abstain | Sprint 2 |
+| Vũ Lê Hoàng | Prompt engineering cho `synthesis.py` bắt Abstain | Sprint 2 |
 | Vũ Hồng Quang | Viết MCP Server API mockup | Sprint 3 |
 | Thành viên 6 | Viết tool benchmark trace JsonL đợi 17:00 | Sprint 4 |
 
